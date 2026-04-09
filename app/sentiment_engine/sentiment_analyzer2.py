@@ -16,13 +16,12 @@ import logging
 from typing import List, Union, Dict
 
 from textblob import TextBlob
+# Groq AI for cloud-based sentiment (Replaces heavy HF models)
+from groq import Groq
+import os
 
-# HuggingFace pipeline
-try:
-    from transformers import pipeline
-    HF_AVAILABLE = True
-except:
-    HF_AVAILABLE = False
+HF_AVAILABLE = False
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Language detection
 try:
@@ -45,17 +44,36 @@ _emotion_model = None
 
 
 # ------------------------------------------------------
-# Initialize Models
+# Groq-based Sentiment & Emotion (Cloud Optimized)
 # ------------------------------------------------------
-def _init_sentiment_model():
-    return pipeline("sentiment-analysis")
+def analyze_with_ai(text: str) -> Dict:
+    """Uses Groq to perform high-quality sentiment and emotion analysis without heavy local models."""
+    if not GROQ_API_KEY:
+        return fallback_sentiment(text)
+    
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        prompt = f"""
+        Analyze the sentiment and emotions of this text: "{text}"
+        Return ONLY valid JSON in this format:
+        {{
+            "label": "POSITIVE/NEGATIVE/NEUTRAL",
+            "score": 0.0 to 1.0,
+            "emotions": {{"joy": 0.0, "anger": 0.0, "surprise": 0.0, "sadness": 0.0, "fear": 0.0}}
+        }}
+        """
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"}
+        )
+        data = json.loads(response.choices[0].message.content)
+        return data
+    except Exception as e:
+        logger.warning(f"Groq Sentiment failed: {e}")
+        return fallback_sentiment(text)
 
-def _init_emotion_model():
-    return pipeline(
-        "text-classification",
-        model="j-hartmann/emotion-english-distilroberta-base",
-        top_k=None
-    )
+import json
 
 
 # ------------------------------------------------------
@@ -184,35 +202,19 @@ def analyze_sentiment(texts: Union[str, List[str]]) -> List[Dict]:
     for text in texts:
         lang = detect_language(text)
 
-        # SENTIMENT
-        if HF_AVAILABLE:
-            try:
-                pred = _senti_model(text)[0]
-                label = pred["label"].upper()
-                score = float(pred["score"])
-                polarity = TextBlob(text).sentiment.polarity
-            except:
-                s = fallback_sentiment(text)
-                label, score, polarity = s["label"], s["score"], s["polarity"]
-        else:
-            s = fallback_sentiment(text)
-            label, score, polarity = s["label"], s["score"], s["polarity"]
+        # AI Analysis (Cloud-ready)
+        ai_data = analyze_with_ai(text)
+        label = ai_data.get("label", "NEUTRAL")
+        score = ai_data.get("score", 0.5)
+        emotions = ai_data.get("emotions", {})
+        polarity = TextBlob(text).sentiment.polarity
 
         if label.startswith("NEG"):
             norm_score = 1 - score
         else:
             norm_score = score
 
-        # EMOTION
-        emotions = {}
-        if HF_AVAILABLE:
-            try:
-                emo_raw = _emotion_model(text)[0]
-                emotions = simplify_emotion_output(emo_raw)
-            except:
-                emotions = {}
-
-        # TREND SCORE (NEW)
+        # TREND SCORE
         trend_score = trend_engine.get_combined_trend_score(text)
 
         entry = {
@@ -222,7 +224,7 @@ def analyze_sentiment(texts: Union[str, List[str]]) -> List[Dict]:
             "polarity": polarity,
             "emotions": emotions,
             "language": lang,
-            "trend_score": trend_score   # <-- integrated
+            "trend_score": trend_score
         }
 
         # Save to Google Sheets
