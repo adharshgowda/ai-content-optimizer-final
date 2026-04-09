@@ -1,50 +1,29 @@
-# Core Python Utilities
+# Core Web & API
+fastapi
+uvicorn
+pydantic
 python-dotenv
+python-multipart
 requests
 aiohttp
 
-# LLM / Content Generation
+# AI / LLM
 groq
 google-generativeai
 
-# Trend Analysis
-pytrends
-
-# Sentiment Analysis (Lightweight fallback)
-textblob
-langdetect
-
-# Grammar, Readability
-textstat
-
-# Google Sheets Integration
-google-api-python-client
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
-
-# Scheduler
-APScheduler
-
-# Slack Notifications
-slack_sdk
-
-# Dashboard & Data
+# Data & Logic
 pandas
 numpy
 joblib
-
-# Social Data Ingestion
-praw           
-tweepy         
-
-# Utility Libraries
+pytrends
+praw
+tweepy
 beautifulsoup4
 lxml
 emoji
 
-# Web Server
-fastapi
-uvicorn
-pydantic
-python-multipart
+# Text & NLP (Lightweight)
+textblob
+langdetect
+textstat
+nltk

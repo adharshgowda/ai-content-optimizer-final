@@ -21,9 +21,8 @@ from pytrends.request import TrendReq
 # ---------- Reddit Trending (Free) ----------
 import praw
 
-# ---------- Keyword Extraction (Open Source) ----------
-import spacy
-from spacy.lang.en.stop_words import STOP_WORDS
+# ---------- Keyword Extraction (Lightweight) ----------
+import re
 
 
 class TrendFetcher:
@@ -57,31 +56,21 @@ class TrendFetcher:
             logging.warning(f"Reddit API not configured: {e}")
             self.reddit = None
 
-        # Load spaCy model for keyword extraction
-        try:
-            self.nlp = spacy.load("en_core_web_sm")
-        except Exception:
-            # fallback: install model instruction
-            logging.warning("spaCy model not found. Run: python -m spacy download en_core_web_sm")
-            self.nlp = None
+        # No spaCy model needed in cloud
+        self.nlp = None
 
     # -------------------------------------------------------------
     #   1. Extract Keywords from Text
     # -------------------------------------------------------------
     def extract_keywords(self, text: str) -> List[str]:
-        if not self.nlp:
-            return []
-
-        doc = self.nlp(text.lower())
-        keywords = []
-
-        for token in doc:
-            if token.is_stop or token.is_punct:
-                continue
-            if token.pos_ in ["NOUN", "PROPN", "ADJ"]:
-                if token.text not in STOP_WORDS:
-                    keywords.append(token.text)
-
+        # Simple regex keyword extractor (Replaces heavy spaCy)
+        text = text.lower()
+        words = re.findall(r'\b[a-z]{4,}\b', text)
+        
+        # Simple stop words filter
+        STOP_WORDS = {"the", "and", "this", "that", "with", "from", "your", "into"}
+        keywords = [w for w in words if w not in STOP_WORDS]
+        
         return list(set(keywords))[:5]  # limit to top 5
 
     # -------------------------------------------------------------
